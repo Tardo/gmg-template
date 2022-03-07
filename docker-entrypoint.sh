@@ -1,11 +1,8 @@
 #!/bin/sh
 set -e
 
-cd /app
-
-pip install -r requirements.txt
-npm install --production
-
+cd /usr/src/app
+npm install --no-save --production
 gunicorn --worker-tmp-dir . run:app
 
 exit 0

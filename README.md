@@ -1,0 +1,2 @@
+- Ensure correct permissions 'root' '600' in secrets folder
+- Create the secrets 'gmg_database_uri' (where connect) and 'gmg_secret' (alphanumeric hash)

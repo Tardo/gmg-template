@@ -5,17 +5,24 @@ services:
     build: .
     container_name: flaskapp
     environment:
-      - TZ=Europe/Madrid
+      - TZ=$DCK_TZ
+      - UID=$DCK_UID
+      - GID=$DCK_GID
+      - GMG_DATABASE_UIR=$GMG_DATABASE_URI
+      - GMG_SECRET=$GMG_SECRET
+    secrets:
+      - gmg_database_uri
+      - gmg_secret
     networks:
       - netpriv
-      - traefik-global
+      - netpub
     volumes:
-      - ./data/src:/app
+      - ./data/src:/usr/src/app
     labels:
       - traefik.enable=true
 
       # CORS
-      - traefik.http.middlewares.flaskapp-cors-headers.headers.accesscontrolallowmethods=GET,OPTIONS
+      - traefik.http.middlewares.flaskapp-cors-headers.headers.accesscontrolallowmethods=PUT,GET,POST,OPTIONS
       - traefik.http.middlewares.flaskapp-cors-headers.headers.accesscontrolalloworiginlist=https://buzaco.es,https://www.buzaco.es
       - traefik.http.middlewares.flaskapp-cors-headers.headers.accesscontrolmaxage=100
       - traefik.http.middlewares.flaskapp-cors-headers.headers.addvaryheader=true
@@ -23,7 +30,7 @@ services:
       # Secure Web UI (Descomentar si se usa HTTPS)
       - traefik.http.routers.flaskapp-https.rule=Host(`buzaco.es`, `www.buzaco.es`)
       - traefik.http.routers.flaskapp-https.entrypoints=websecure
-      - traefik.http.routers.flaskapp-https.middlewares=low-ratelimit@file,secure-headers@file,norobots-headers@file,flaskapp-cors-headers@docker
+      - traefik.http.routers.flaskapp-https.middlewares=ratelimit@file,secure-headers@file,norobots-headers@file,flaskapp-cors-headers@docker
       - traefik.http.routers.flaskapp-https.tls=true
       - traefik.http.routers.flaskapp-https.tls.certresolver=letsencrypt
       - traefik.http.routers.flaskapp-https.tls.domains[0].main=buzaco.es
@@ -34,9 +41,15 @@ services:
     restart: unless-stopped
     hostname: "flaskapp"
 
+secrets:
+  postgres_admin_password:
+    file: $DCK_GMG_SECRETSDIR/gmg_database_uri
+  postgres_admin_password:
+    file: $DCK_GMG_SECRETSDIR/gmg_secret
+
 networks:
-  traefik-global:
-    name: "traefik-global"
+  netpub:
+    name: "net-public"
   netpriv:
     name: "net-private"
     internal: true

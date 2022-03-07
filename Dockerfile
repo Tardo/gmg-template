@@ -11,6 +11,9 @@ RUN bash n latest
 RUN npm install --global npm
 RUN npm install --global postcss postcss-cli rollup
 
+WORKDIR /usr/src/app
+COPY ./data/src/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
 COPY ./docker-entrypoint.sh /
 ENTRYPOINT ["sh", "/docker-entrypoint.sh"]
-
