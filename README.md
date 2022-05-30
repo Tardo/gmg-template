@@ -1,19 +1,22 @@
 # GMG Copier Template
 
-#### Install Requirements
+#### Requirements
+
+- Python 3.7 or newer (3.8 or newer if you're on Windows).
+- Git 2.27 or newer.
+- Docker and docker-compose.
 
 ```shell
-sudo apt install python3 python3-pip python3-venv git
 pip install pipx
 pipx install copier
 pipx ensurepath
 ```
 
-#### Run copier
+#### Run this copier template
 ```
 copier copy gh:Tardo/gmg-template gmg
 cd gmg
 docker-compose up -d
 ```
 
-Now can visit: http://locahost:8080
+In development mode now can visit: http://locahost:8080 
