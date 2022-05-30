@@ -1,0 +1,171 @@
+version: "3"
+
+services:
+  flaskapp:
+    image: ghcr.io/tardo/docker-flask:latest
+    container_name: flaskapp
+    shm_size: '{{ shm_size }}'
+    environment:
+      - TZ=$DCK_TZ
+      - GMG_DATABASE_URI=DOCKER-SECRET->gmg_database_uri
+      - GMG_ADMIN_PASSWORD=DOCKER-SECRET->gmg_admin_password
+      - FLASK_ENV=$APP_MODE
+      - NODE_ENV=$APP_MODE
+      - POETRY_NO_DEV={{ mode == "production" and true or false }}
+      {%- if mode == "production" %}
+      - POETRY_INSTALL_ARGS=--no-dev
+      - NPM_INSTALL_ARGS=--no-save --omit=dev
+      {%- else %}
+      - NPM_INSTALL_ARGS=--no-save
+      {%- endif %}
+    secrets:
+      - gmg_database_uri
+      - gmg_admin_password
+    networks:
+      - netpriv
+      - netpub
+    volumes:
+      - ./data/src:/usr/src/app
+      - common_cache:/root/.cache
+      - npm_cache:/root/.npm
+    {%- if deploy_traefik or postgres_version != '' %}
+    depends_on:
+      {%- if deploy_traefik %}
+      - traefik
+      {%- endif %}
+      {%- if postgres_version != '' %}
+      - postgres
+      {%- endif %}
+    {%- endif %}
+    {%- if mode == "development" %}
+    ports:
+      - "8080:8080"
+    {%- endif %}
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=gmg-net-public
+
+      {%- if mode == "production" and hostname != "localhost" %}
+      # CORS
+      - traefik.http.middlewares.flaskapp-cors-headers.headers.accesscontrolallowmethods=PUT,GET,POST,OPTIONS
+        {%- if use_https %}
+      - traefik.http.middlewares.flaskapp-cors-headers.headers.accesscontrolalloworiginlist=https://{{hostname}},https://www.{{hostname}}
+        {%- else %}
+      - traefik.http.middlewares.flaskapp-cors-headers.headers.accesscontrolalloworiginlist=http://{{hostname}},http://www.{{hostname}}
+        {%- endif %}
+      - traefik.http.middlewares.flaskapp-cors-headers.headers.accesscontrolmaxage=100
+      - traefik.http.middlewares.flaskapp-cors-headers.headers.addvaryheader=true
+      {%- endif %}
+    {%- if hostname == "localhost" %}
+      # Direct Web UI
+      - traefik.http.routers.flaskapp-main.rule=PathPrefix(`/`)
+      - traefik.http.routers.flaskapp-main.entrypoints=web
+    {%- else %}
+      # Main Rule/Service
+      - traefik.http.routers.flaskapp-main.rule=Host(`{{hostname}}`, `www.{{hostname}}`)
+      {%- if use_https %}
+      - traefik.http.routers.flaskapp-main.entrypoints=websecure
+      - traefik.http.routers.flaskapp-main.middlewares=common-ratelimit@file,secure-headers@file,norobots-headers@file,flaskapp-cors-headers@docker
+      - traefik.http.routers.flaskapp-main.tls=true
+      - traefik.http.routers.flaskapp-main.tls.certresolver=letsencrypt
+      - traefik.http.routers.flaskapp-main.tls.domains[0].main={{hostname}}
+      {%- else %}
+      - traefik.http.routers.flaskapp-main.entrypoints=web
+      - traefik.http.routers.flaskapp-main.middlewares=common-ratelimit@file,norobots-headers@file,flaskapp-cors-headers@docker
+      {%- endif %}
+    {%- endif %}
+      - traefik.http.routers.flaskapp-main.service=flaskapp-main-service
+      - traefik.http.services.flaskapp-main-service.loadbalancer.server.port=8080
+    restart: unless-stopped
+    hostname: "flaskapp"
+
+  {%- if deploy_traefik %}
+  traefik:
+    image: traefik:latest
+    container_name: traefik
+    environment:
+      - TZ=$DCK_TZ
+      {% if use_letsencrypt_ovh %}
+      - OVH_ENDPOINT={{ovh_endpoint}}
+      - OVH_APPLICATION_KEY_FILE=/run/secrets/ovh_app_key
+      - OVH_APPLICATION_SECRET_FILE=/run/secrets/ovh_app_secret
+      - OVH_CONSUMER_KEY_FILE=/run/secrets/ovh_consumer_key
+      {%- endif %}
+    {%- if use_letsencrypt_ovh %}
+    secrets:
+      - ovh_app_key
+      - ovh_app_secret
+      - ovh_consumer_key
+    {%- endif %}
+    ports:
+      - "{{port}}:80"
+      {%- if use_https %}
+      - "{{portsecure}}:443"
+      {%- endif %}
+    networks:
+      - netpub
+    volumes:
+      - ./data/traefik/traefik.yaml:/etc/traefik/traefik.yaml
+      - ./data/traefik/access.log:/etc/traefik/access.log
+      - ./data/traefik/acme.json:/etc/traefik/acme.json
+      - ./data/traefik/conf/:/etc/traefik/conf/
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    hostname: "flaskapp-traefik"
+  {%- endif %}
+
+  {% if postgres_version != '' -%}
+  postgres:
+    image: postgres:{{postgres_version}}
+    container_name: postgres
+    environment:
+      - TZ=$DCK_TZ
+      - POSTGRES_USER={{postgres_username}}
+      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
+      - POSTGRES_DB={{postgres_db_name}}
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    secrets:
+      - postgres_password
+    networks:
+      - netpriv
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    {%- if deploy_traefik %}
+    depends_on:
+      - traefik
+    {%- endif %}
+    restart: unless-stopped
+    hostname: "flaskapp-postgres"
+  {%- endif %}
+
+secrets:
+  gmg_database_uri:
+    file: ./.secrets/gmg_database_uri
+  gmg_admin_password:
+    file: ./.secrets/gmg_admin_password
+  {%- if postgres_version != '' %}
+  postgres_password:
+    file: ./.secrets/postgres_password
+  {%- endif %}
+  {%- if use_letsencrypt_ovh %}
+  ovh_app_key:
+    file: ./.secrets/ovh_app_key
+  ovh_app_secret:
+    file: ./.secrets/ovh_app_secret
+  ovh_consumer_key:
+    file: ./.secrets/ovh_consumer_key
+  {%- endif %}
+
+volumes:
+  common_cache:
+  npm_cache:
+  postgres_data:
+
+networks:
+  netpub:
+    name: "gmg-net-public"
+  netpriv:
+    name: "gmg-net-private"
+    internal: true

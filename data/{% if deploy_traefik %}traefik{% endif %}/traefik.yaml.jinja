@@ -1,0 +1,42 @@
+log:
+  level: Info
+
+providers:
+  docker:
+    exposedByDefault: false
+  file:
+    directory: "/etc/traefik/conf"
+    watch: true
+
+accessLog:
+  filePath: "/etc/traefik/access.log"
+  bufferingSize: 100
+
+api:
+  insecure: false
+
+entryPoints:
+  {% if use_letsencrypt_ovh %}
+  websecure:
+    address: ":443"
+  {% endif %}
+  web:
+    address: ":80"
+    {% if use_letsencrypt_ovh %}
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+    {% endif %}
+
+{% if use_letsencrypt_ovh %}
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: {{acme_mail}}
+      storage: /etc/traefik/acme.json
+      dnsChallenge:
+        provider: ovh
+        delayBeforeCheck: 10
+{% endif %}

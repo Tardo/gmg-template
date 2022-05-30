@@ -1,0 +1,194 @@
+# Configure jinja2 defaults to make syntax highlighters lives easier
+_templates_suffix: .jinja
+_envops:
+  block_end_string: "%}"
+  block_start_string: "{%"
+  comment_end_string: "#}"
+  comment_start_string: "{#"
+  keep_trailing_newline: true
+  variable_end_string: "}}"
+  variable_start_string: "{{"
+
+# Other Copier configurations
+_min_copier_version: "4.1.0"
+_exclude:
+  - /.git
+  - /.github
+  - /.gitmodules
+  - /.gitignore
+  - /**.pyc
+  - /**.pyo
+  - /copier.yml
+  - /poetry.lock
+  - /pyproject.toml
+  - /tests
+
+_tasks:
+  - chmod 0700 .secrets
+  - chmod 0400 .secrets/*
+  - mkdir -p ./data/src
+  - mkdir -p ./data/traefik
+  - touch ./data/traefik/access.log
+  - touch ./data/traefik/acme.json
+  - chmod 0600 ./data/traefik/acme.json
+  - git clone https://github.com/Tardo/gmg.git ./data/src --depth 1
+  - mv ./gmg.conf ./data/src/gmg.conf
+
+mode:
+  default: development
+  help: >-
+    Deploy mode?
+  choices:
+    production: production
+    development: development
+
+hostname:
+  when: &is_prod_mode "{{ mode == 'production' and true }}"
+  default: localhost
+  type: str
+  help: >-
+    Which domain do you want to use?
+
+shm_size:
+  default: 2gb
+  help: >-
+    Shared memory size
+  choices:
+    1gb: 1gb
+    2gb: 2gb
+    3gb: 3gb
+    4gb: 4gb
+
+port:
+  default: 80
+  type: int
+  help: >-
+    Which port do you want to use?
+
+use_https:
+  when: *is_prod_mode
+  default: false
+  type: bool
+  help: >-
+    Configure HTTPS?
+
+portsecure:
+  default: 443
+  type: int
+  help: >-
+    Which secured port do you want to use?
+
+admin_user:
+  default: admin
+  type: str
+  help: >-
+    Admin username?
+
+admin_password:
+  secret: true
+  default: null
+  type: str
+  help: >-
+    Admin password?
+
+timezone:
+  default: "Europe/Madrid"
+  type: str
+  help: >-
+    Timezone?
+
+num_workers:
+  default: 3
+  type: int
+  help: >-
+    Scheduler workers (recommended maximum is pyshycal cores x 2 + 1)?
+
+postgres_version:
+  default: "13"
+  help: >-
+    Which PostgreSQL version do you want to deploy?
+  choices:
+    "12": "12"
+    "13": "13"
+    "14": "14"
+    I will use an external PostgreSQL server: ""
+
+postgres_server:
+  when: "{{ postgres_version == '' }}"
+  default: flaskapp-postgres
+  type: str
+  help: >-
+    PostgreSQL server host?
+
+postgres_username:
+  default: postgres
+  type: str
+  help: >-
+    PostgreSQL master username?
+
+postgres_password:
+  secret: true
+  default: null
+  type: str
+  help: >-
+    PostgreSQL master password?
+
+postgres_db_name:
+  default: gmg
+  type: str
+  help: >-
+    PostgreSQL APP database name?
+
+deploy_traefik:
+  when: *is_prod_mode
+  default: false
+  type: bool
+  help: >-
+    Deploy Traefik?
+
+use_letsencrypt_ovh:
+  when: "{{ deploy_traefik and true }}"
+  default: false
+  type: bool
+  help: >-
+    Configure Let's Encrypt with OVH?
+
+acme_mail:
+  when: &lets_ovh "{{ use_letsencrypt_ovh and true }}"
+  default: null
+  type: str
+  help: >-
+    ACME email (where you receive advises)?
+
+ovh_endpoint:
+  when: *lets_ovh
+  default: ovh-eu
+  help: >-
+    OVH Endpoint?
+  choices:
+    ovh-eu: ovh-eu
+    ovh-ca: ovh-ca
+
+ovh_app_key:
+  when: *lets_ovh
+  secret: true
+  default: null
+  type: str
+  help: >-
+    OVH application key?
+
+ovh_app_secret:
+  when: *lets_ovh
+  secret: true
+  default: null
+  type: str
+  help: >-
+    OVH application secret?
+
+ovh_consumer_key:
+  when: *lets_ovh
+  secret: true
+  default: null
+  type: str
+  help: >-
+    OVH consumer key?

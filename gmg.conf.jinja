@@ -1,0 +1,73 @@
+[global]
+secret =
+max_upload_size = 16
+partition = /
+refresh_time = 15
+templates_auto_reload = true
+host = 0.0.0.0
+port = 8000
+threaded = false
+default_file_max_age = 31536000
+{% if use_https %}
+canonical_url = https://{{hostname}}
+{% else %}
+canonical_url = http://{{hostname}}
+{% endif %}
+
+[admin]
+username = {{admin_user}}
+password =
+
+[cors]
+{% if use_https %}
+allowed_origins = https://{{hostname}}
+{% elif hostname == "localhost" %}
+allowed_origins = *
+{% else %}
+allowed_origins = http://{{hostname}}
+{% endif %}
+
+[debug]
+engine = true
+assets = true
+
+[cache]
+type = SimpleCache
+default_timeout = 300
+
+[database]
+uri =
+track_modifications = false
+echo = false
+
+[log]
+file = gmg.log
+maxbytes = 10000
+
+[login]
+max_tries = 3
+ban_time = 1200
+
+[session]
+time = 10
+default_timezone = {{timezone}}
+{% if use_https %}
+session_cookie_secure = true
+{% else %}
+session_cookie_secure = false
+{% endif %}
+session_cookie_samesite = Lax
+
+[ssl]
+enabled = false
+pkey = 
+cert = 
+
+[analyzer]
+mv_session_hash = 
+mv_scheduler_post_requests_delay = 2
+mv_scheduler_thread_requests_delay = 3
+mv_scheduler_interval_minutes = 3
+
+[scheduler]
+executor_workers = {{num_workers}}

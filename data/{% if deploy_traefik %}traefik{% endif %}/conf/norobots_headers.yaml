@@ -1,0 +1,6 @@
+http:
+  middlewares:
+    norobots-headers:
+      headers:
+        customResponseHeaders:
+          X-Robots-Tag: "none"
