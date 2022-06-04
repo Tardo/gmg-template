@@ -12,6 +12,7 @@ services:
       - FLASK_ENV=$APP_MODE
       - NODE_ENV=$APP_MODE
       - POETRY_NO_DEV={{ mode == "production" and true or false }}
+      - GUNICORN_PID_FILE=/tmp/gunicorn_gmg.pid
       {%- if mode == "production" %}
       - POETRY_INSTALL_ARGS=--no-dev
       - NPM_INSTALL_ARGS=--no-save --omit=dev
